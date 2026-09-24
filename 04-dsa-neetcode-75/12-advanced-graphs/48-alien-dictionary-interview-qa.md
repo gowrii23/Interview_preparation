@@ -1,0 +1,25 @@
+# Interview Q&A: Alien Dictionary (LeetCode 269)
+
+## Q1. Why do adjacent pairs generate every precedence you need?
+
+**Answer:** The list is claimed to be fully sorted. In a total order, if each neighboring pair is in the right order, the whole list is. The first position where two neighbors differ is the constraint that makes that pair sorted. Anything those two words do not force is not something I may invent. Non-adjacent words can look like they hide an extra rule, and that rule is either already implied by the chain of adjacent rules or, if it truly conflicts, the adjacent rules already contain a cycle or an invalid prefix. So I never compare word 0 with word 2 directly. I would still get a correct alphabet, and I would do extra work and risk double-counting edges. One pass over neighbors is the whole parser.
+
+## Q2. Walk `wrt, wrf, er, ett, rftt` down to the string `wertf`.
+
+**Answer:** `wrt` versus `wrf` shares `wr` and then says `t` before `f`. `wrf` versus `er` differs at the first character, `w` before `e`. I do not also compare `r` with `e`. `er` versus `ett` matches `e` and then says `r` before `t`. `ett` versus `rftt` says `e` before `r`. The graph is `w → e → r → t → f`, plus the edge `t → f` which is already in that chain. `w` is the only indegree-zero letter. Kahn appends `w`, frees `e`, appends `e`, frees `r`, appends `r`, frees `t`, appends `t`, frees `f`, appends `f`. Every present letter was emitted. The string is `wertf`. No other order satisfies all four edges, so a different valid implementation returns the same string on this input.
+
+## Q3. Explain both prefix cases: `abc` then `ab`, and `ab` then `abc`.
+
+**Answer:** Dictionary order always places a word before an extension of that word. `ab` comes before `abc` in every alphabet, because they share the prefix `ab` and the shorter word ends. Seeing `ab` first is consistent and gives me no letter edge. I just move on. Seeing `abc` first is inconsistent with every alphabet. The scan matches `a` and `b`, runs out of characters on the second word, and notices the first word is longer. I return an empty string immediately. I do not try to "invent" an edge from `c` to end-of-string. End-of-string is not a letter in the output. If I skipped this check, the two words would contribute no edge, the letters `a`, `b`, and `c` would look unconstrained, and I would return a string for an input that is not sorted.
+
+## Q4. Where do cycles and repeated edges show up in Kahn's algorithm?
+
+**Answer:** A cycle means some subset of letters always has a remaining indegree, so the queue empties before every present letter is appended. `z, x, z` produces `z → x` and `x → z`. Neither letter starts at indegree 0. The result length is 0, not 2, and I return `""`. I throw away nothing only because I never appended; if a cycle sat downstream of a free letter, I might have a prefix built, and I still discard it because the length check fails. A repeated edge is different. `ac` before `ab`, and later `zc` before `zb`, both say `c` before `b`. If I increment `b` twice and only store one edge, I decrement `b` once and it never hits zero, so I falsely report a cycle. The boolean matrix records `c → b` on the first sighting only. The second sighting is a no-op. The order can still be completed.
+
+## Q5. A single word `zba` has no pairs. What must the output satisfy, and what does this code return?
+
+**Answer:** There are no precedence edges. Any permutation of the distinct letters `z`, `b`, and `a` is a valid alphabet, and the output must include each of them once. Omitting `z` because it was not part of a rule is wrong. This implementation puts every indegree-zero letter into the queue by scanning `a` through `z`, so the three letters enter as `a`, then `b`, then `z`, and the string is `abz`. A breadth-first implementation that queues letters in the order they first appear in the word might return `zba`. Both are correct. I would only call a test a failure if the string is missing a letter, repeats a letter, or violates an edge that actually exists. I say "one valid order" in the interview before I commit to alphabetical tie-breaking, so a different expected string does not look like a logic bug.
+
+## Q6. What is the complexity, and why is union-find not a fallback?
+
+**Answer:** I spend time proportional to the total number of characters to find mismatches, plus a topological sort on at most 26 letters. With a 26 by 26 edge matrix the sort scans a constant-size row per letter, so the practical bound is O(total characters). In big-O that still includes the alphabet: O(C + U²) time and O(U²) space if the alphabet size is U. Union-find would merge `t` and `f` into one component and forget which one comes first. It can tell me the letters are related. It cannot order them, and it cannot express a cycle of precedences as "same component" in a way that yields an alphabet. A cycle of directed edges is exactly the case where I must return empty rather than a component label. I use Kahn, or DFS colors with postorder, and I keep the edge direction as earlier letter to later letter.
